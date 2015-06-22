@@ -35,9 +35,11 @@ class BaseLayer:
 	def __init__(self):
 		#The layer parameters - these can
 		#be different for different layers
-		self.prms_ = {}
+		self.lPrms_ = {}
 		#The gradients wrt to the parameters and the bottom
 		self.grad_ = {} 
+		#Storing the weights and other stuff
+		self.prms_ = {}
 
 	#Forward pass
 	def forward(self, bottom, top):
@@ -97,9 +99,9 @@ class BaseLayer:
 ##
 # Recitified Linear Unit (ReLU)
 class ReLU(BaseLayer):
-	def __init__(self, **prms):
+	def __init__(self, **lPrms):
 		super(ReLU, self).__init__()
-		self.prms_ = get_layer_parameters('ReLU', prms) 
+		self.lPrms_ = get_layer_parameters('ReLU', lPrms) 
 
 	def setup(self, bottom, top):
 		top = np.zeros_like(bottom)
@@ -113,15 +115,27 @@ class ReLU(BaseLayer):
 ##
 # Sigmoid
 class Sigmoid(BaseLayer):
-	def __init__(self, **prms):
+	'''
+		f(x) = 1/(1 + exp(-sigma * x))
+	'''
+	def __init__(self, **lPrms):
 		super(Sigmoid, self).__init__()
-		self.prms_ = get_layer_parameters('Sigmoid', prms) 
+		self.lPrms_ = get_layer_parameters('Sigmoid', lPrms) 
 
 	def setup(self, bottom, top):
 		top = np.zeros_like(bottom)
 		
 	def forward(self, bottom, top):
-		top = 1.0 / (1 + np.exp(-bottom * self.prms_['sigma']))
+		top = 1.0 / (1 + np.exp(-bottom * self.lPrms_['sigma']))
 
 	def backward(self, bottom, top, botgrad, topgrad):
-		pass
+		botgrad = topgrad * (top) * (1 - top) * self.lPrms_['sigma']
+
+##
+#Inner Product
+class InnerProduct(BaseLayer):
+	def __init__(self, **lPrms):
+		super(Sigmoid, self).__init__()
+		self.lPrms_ = get_layer_parameters('Sigmoid', lPrms) 
+
+	
