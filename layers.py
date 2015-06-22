@@ -156,8 +156,12 @@ class SoftMax(BaseLayer):
 		top = np.zeros_like(bottom)
 		
 	def forward(self, bottom, top):
-		top[...] = 1.0 / (1 + np.exp(-bottom * self.sigma))
+		for i in range(bottom.shape[0]):
+			mn = np.min(bottom[i,:])
+			top[i, :] = np.exp(-(top[i,:] - mn))
+			Z         = sum(top[i,:])
+			top[i,:]  = top[i,:] / Z
+	
 
 	def backward(self, bottom, top, botgrad, topgrad):
-		botgrad[...] = topgrad * (top) * (1 - top) * self.sigma
-
+		pass
