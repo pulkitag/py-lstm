@@ -7,12 +7,14 @@ import layers as ly
 import pdb
 
 def test_relu():
-	relu   = ly.ReLU(prms={'name': 'relu1'})
+	relu   = ly.ReLU()
 	bottom = np.random.randn(4,5)
-	relu.setup(bottom)
-	relu.forward(bottom)
-	relu.backward(bottom, np.ones_like(bottom))
-	pdb.set_trace()
+	top    = np.zeros_like(bottom)
+	relu.setup(bottom, top)
+	relu.forward(bottom, top)
+	topgrad, botgrad = np.zeros_like(top), np.zeros_like(bottom)
+	relu.backward(bottom, top, botgrad, topgrad)
+	#pdb.set_trace()
 	
 
 class A:

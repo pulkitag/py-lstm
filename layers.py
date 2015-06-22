@@ -31,15 +31,21 @@ def get_layer_prms(layerType, ipPrms):
 
 ##
 # The base class from which other layers will inherit. 
-class BaseLayer:
-	def __init__(self):
+class BaseLayer(object):
+	def __init__(self, **lPrms):
 		#The layer parameters - these can
 		#be different for different layers
-		self.lPrms_ = {}
+		print lPrms
+		for n in lPrms:
+			if hasattr(self,n):
+				setattr(self,n,lPrms[n])
+			else:
+				raise Exception( "Attribute '%s' not found"%n )
 		#The gradients wrt to the parameters and the bottom
 		self.grad_ = {} 
 		#Storing the weights and other stuff
 		self.prms_ = {}
+		
 
 	#Forward pass
 	def forward(self, bottom, top):
@@ -99,9 +105,9 @@ class BaseLayer:
 ##
 # Recitified Linear Unit (ReLU)
 class ReLU(BaseLayer):
+	type_ = 'ReLU'
 	def __init__(self, **lPrms):
-		super(ReLU, self).__init__()
-		self.lPrms_ = get_layer_parameters('ReLU', lPrms) 
+		super(ReLU, self).__init__(**lPrms)
 
 	def setup(self, bottom, top):
 		top = np.zeros_like(bottom)
@@ -110,7 +116,7 @@ class ReLU(BaseLayer):
 		top = np.maximum(bottom, 0)
 
 	def backward(self, bottom, top, botgrad, topgrad):
-		botgrad = topgrad * (self.top_>0)	
+		botgrad = topgrad * (top>0)	
 	
 ##
 # Sigmoid
@@ -118,24 +124,25 @@ class Sigmoid(BaseLayer):
 	'''
 		f(x) = 1/(1 + exp(-sigma * x))
 	'''
+	type_ = 'Sigmoid'
+	sigma = 1.0
 	def __init__(self, **lPrms):
-		super(Sigmoid, self).__init__()
-		self.lPrms_ = get_layer_parameters('Sigmoid', lPrms) 
+		super(Sigmoid, self).__init__(**lPrms)
 
 	def setup(self, bottom, top):
 		top = np.zeros_like(bottom)
 		
 	def forward(self, bottom, top):
-		top = 1.0 / (1 + np.exp(-bottom * self.lPrms_['sigma']))
+		top = 1.0 / (1 + np.exp(-bottom * self.sigma))
 
 	def backward(self, bottom, top, botgrad, topgrad):
-		botgrad = topgrad * (top) * (1 - top) * self.lPrms_['sigma']
+		botgrad = topgrad * (top) * (1 - top) * self.sigma
 
 ##
 #Inner Product
 class InnerProduct(BaseLayer):
 	def __init__(self, **lPrms):
 		super(Sigmoid, self).__init__()
-		self.lPrms_ = get_layer_parameters('Sigmoid', lPrms) 
+		self.lPrms_ = get_layer_parameters('InnerProduct', lPrms) 
 
 	
