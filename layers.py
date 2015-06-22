@@ -143,4 +143,21 @@ class InnerProduct(BaseLayer):
 		botgrad[...]  = np.dot(topgrad, np.transpose(self.grad_['w'])) 
 		#Gradients wrt to the parameters
 		self.grad_['w'][...] = np.dot(topgrad.transpose(), bottom).transpose() / N
-		self.grad_['b'][...] = np.sum(topgrad, axis=0) / N	
+		self.grad_['b'][...] = np.sum(topgrad, axis=0) / N
+
+##
+#SoftMax
+class SoftMax(BaseLayer):
+	type_ = 'SoftMax'
+	def __init__(self, **lPrms):
+		super(InnerProduct, self).__init__(**lPrms)
+
+	def setup(self, bottom, top):
+		top = np.zeros_like(bottom)
+		
+	def forward(self, bottom, top):
+		top[...] = 1.0 / (1 + np.exp(-bottom * self.sigma))
+
+	def backward(self, bottom, top, botgrad, topgrad):
+		botgrad[...] = topgrad * (top) * (1 - top) * self.sigma
+
