@@ -4,20 +4,29 @@
 import numpy as np
 import scipy.misc as scm
 import copy
+import utils
+
+##
+# The default layer parameters
+def get_layer_prms(layerType, ipPrms):
+	prms = {}
+	prms['type'] = layerType
+	if layerType == 'ReLU':
+		pass
+	elif layerType == 'Sigmoid' 
+		prms['sigma'] = 1.0
+	else:
+		raise Exception('layerType %s not recognized' % layerType)
+	newPrms = utils.update_defaults(ipPrms, prms) 
+	return newPrms
 
 ##
 # The base class from which other layers will inherit. 
 class BaseLayer:
-	def __init__(self, prms={'name': 'default'}):
-		#Type of layers
-		self.type_ = None
-		#Name of the layers
-		self.name_ = prms['name']
+	def __init__(self):
 		#The layer parameters - these can
 		#be different for different layers
-		self.prms_ = prms
-		#The output of the layer
-		self.top_  = None
+		self.prms_ = {}
 		#The gradients wrt to the parameters and the bottom
 		self.grad_ = {} 
 
@@ -26,10 +35,11 @@ class BaseLayer:
 		pass
 
 	#Backward pass
-	def backward(self, bottom, topgrad):
+	def backward(self, bottom, topgrad, botgrad):
 		'''
-			bottom: The inputs from the previous layer
-			top   : The gradient from the next layer
+			bottom : The inputs from the previous layer
+			topgrad: The gradient from the next layer
+			botgrad: The gradient to the bottom layer
 		'''
 		pass
 
@@ -56,19 +66,23 @@ class BaseLayer:
 ##
 # Recitified Linear Unit (ReLU)
 class ReLU(BaseLayer):
+	def __init__(self, **prms):
+		super(ReLU, self).__init__()
+		self.prms_ = get_layer_parameters('ReLU', prms) 
+
 	def setup(self, bottom, top):
-		top               = np.zeros_like(bottom)
-		self.grad_['bot'] = np.zeros_like(bottom) 
-		self.type_        = 'ReLU'
+		top = np.zeros_like(bottom)
 
 	def forward(self, bottom, top):
 		top = np.maximum(bottom, 0)
 
-	def backward(self, bottom, topgrad):
-		self.grad_['bot'] = topgrad * (self.top_>0)	
+	def backward(self, bottom, topgrad, botgrad):
+		botgrad = topgrad * (self.top_>0)	
 	
 ##
 # Sigmoid
 class Sigmoid(BaseLayer):
-	
+	def __init__(self, **prms):
+		super(Sigmoid, self).__init__()
+		self.prms_ = get_layer_parameters('Sigmoid', prms) 
 	
