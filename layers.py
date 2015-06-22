@@ -73,6 +73,6 @@ class ReLU(BaseLayer):
 		self.top_ = np.maximum(bottom, 0)
 
 	def backward(self, bottom, topgrad):
-		
+		self.grad_['bot'] = topgrad * (self.top_>0)	
 	
 	
