@@ -6,6 +6,15 @@ import scipy.misc as scm
 import copy
 import utils
 
+'''
+class ReLUPrms:
+	type_ = 'ReLU'
+
+class SigmoidPrms:
+	type_ = 'Sigmoid'
+	sigma = 1.0	
+'''
+
 ##
 # The default layer parameters
 def get_layer_prms(layerType, ipPrms):
@@ -35,7 +44,7 @@ class BaseLayer:
 		pass
 
 	#Backward pass
-	def backward(self, bottom, topgrad, botgrad):
+	def backward(self, bottom, top, botgrad, topgrad):
 		'''
 			bottom : The inputs from the previous layer
 			topgrad: The gradient from the next layer
@@ -76,7 +85,7 @@ class ReLU(BaseLayer):
 	def forward(self, bottom, top):
 		top = np.maximum(bottom, 0)
 
-	def backward(self, bottom, topgrad, botgrad):
+	def backward(self, bottom, top, botgrad, topgrad):
 		botgrad = topgrad * (self.top_>0)	
 	
 ##
@@ -85,4 +94,12 @@ class Sigmoid(BaseLayer):
 	def __init__(self, **prms):
 		super(Sigmoid, self).__init__()
 		self.prms_ = get_layer_parameters('Sigmoid', prms) 
-	
+
+	def setup(self, bottom, top):
+		top = np.zeros_like(bottom)
+		
+	def forward(self, bottom, top):
+		top = 1.0 / (1 + np.exp(-bottom * self.prms_['sigma']))
+
+	def backward(self, bottom, top, botgrad, topgrad):
+		pass
