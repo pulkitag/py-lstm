@@ -6,29 +6,6 @@ import scipy.misc as scm
 import copy
 import utils
 
-'''
-class ReLUPrms:
-	type_ = 'ReLU'
-
-class SigmoidPrms:
-	type_ = 'Sigmoid'
-	sigma = 1.0	
-'''
-
-##
-# The default layer parameters
-def get_layer_prms(layerType, ipPrms):
-	prms = {}
-	prms['type'] = layerType
-	if layerType == 'ReLU':
-		pass
-	elif layerType == 'Sigmoid':
-		prms['sigma'] = 1.0
-	else:
-		raise Exception('layerType %s not recognized' % layerType)
-	newPrms = utils.update_defaults(ipPrms, prms) 
-	return newPrms
-
 ##
 # The base class from which other layers will inherit. 
 class BaseLayer(object):
@@ -113,10 +90,10 @@ class ReLU(BaseLayer):
 		top = np.zeros_like(bottom)
 
 	def forward(self, bottom, top):
-		top = np.maximum(bottom, 0)
+		top[...] = np.maximum(bottom, 0)
 
 	def backward(self, bottom, top, botgrad, topgrad):
-		botgrad = topgrad * (top>0)	
+		botgrad[...] = topgrad * (top>0)	
 	
 ##
 # Sigmoid
@@ -133,16 +110,37 @@ class Sigmoid(BaseLayer):
 		top = np.zeros_like(bottom)
 		
 	def forward(self, bottom, top):
-		top = 1.0 / (1 + np.exp(-bottom * self.sigma))
+		top[...] = 1.0 / (1 + np.exp(-bottom * self.sigma))
 
 	def backward(self, bottom, top, botgrad, topgrad):
-		botgrad = topgrad * (top) * (1 - top) * self.sigma
+		botgrad[...] = topgrad * (top) * (1 - top) * self.sigma
 
 ##
 #Inner Product
 class InnerProduct(BaseLayer):
+	'''
+		The input and output will be batchSz * numUnits
+	'''
+	##TODO: Define weight fillers
+	type_  = 'InnerProduct'
+	numOut = 10	
 	def __init__(self, **lPrms):
-		super(Sigmoid, self).__init__()
-		self.lPrms_ = get_layer_parameters('InnerProduct', lPrms) 
+		super(InnerProduct, self).__init__(**lPrms)
 
-	
+	def setup(self, bottom, top):
+		top = np.zeros((bottom.shape[0], self.numOut)).astype(bottom.dtype)
+		self.prms_['w'] = np.zeros((bottom.shape[1], self.numOut).astype(bottom.dtype)
+		self.prms_['b'] = np.zeros((1, self.numOut).astype(bottom.dtype)
+		self.grad_['w'] = np.zeros_like(self.prms_['w'])
+		self.grad_['b'] = np.zeros_like(self.prms_['b'])	
+
+	def forward(self, bottom, top):
+		top[...] = np.dot(bottom,  self.prms_['w']) + self.prms_['b'] 
+
+	def backward(self, bottom, top, botgrad, topgrad):
+		N = bottom.shape[0]
+		#Gradients wrt to the inputs
+		botgrad[...]  = np.dot(topgrad, np.transpose(self.grad_['w'])) 
+		#Gradients wrt to the parameters
+		self.grad_['w'][...] = np.dot(topgrad.transpose(), bottom).transpose() / N
+		self.grad_['b'][...] = np.sum(topgrad, axis=0) / N	
