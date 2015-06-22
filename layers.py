@@ -13,7 +13,7 @@ def get_layer_prms(layerType, ipPrms):
 	prms['type'] = layerType
 	if layerType == 'ReLU':
 		pass
-	elif layerType == 'Sigmoid' 
+	elif layerType == 'Sigmoid':
 		prms['sigma'] = 1.0
 	else:
 		raise Exception('layerType %s not recognized' % layerType)
@@ -47,19 +47,41 @@ class BaseLayer:
 	def setup(self, bottom, top):
 		pass
 
-	def get_gradient(self, gradType='bot'):
+	@property
+	def gradient(self):
 		'''
-			gradType: bot - gradients with respect to the bottom inputs
-								in general it can be the name of parameters wrt to which
-								gradient is required
+			Get the gradient of the parameters
 		'''
-		assert gradType in self.grad_.keys(), 'gradType: %s is not recognized' % gradType
-		return copy.deepcopy(self.grad_[gradType])	
+		return self.grad_
+	@property
+	def flat_gradient(self):
+		'''
+			Get the gradient of the parameters as a 1d array
+		'''
+		return np.concatenate( [self.grad_[n].ravel() for n in sorted(self.grad_)], axis=0 )
+
+	@property
+	def flat_parameters(self):
+		""" Fetch all the parameters of the layer and return them as a 1d array """
+		return np.concatenate( [self.prms_[n].ravel() for n in sorted(self.prms_)], axis=0 )
+	@flat_parameters.setter
+	def flat_parameters(self, value):
+		""" Set all the parameters of the layer """
+		k = 0
+		for n in sorted(self.prms_):
+			kk = k + self.prms_[n].size
+			self.prms_[n].flat[...] = value[k:kk]
+			k = kk
+	
+	@property
+	def parameters(self):
+		""" Return the layer parameters """
+		return self.prms_
 
 	def get_mutable_gradient(self, gradType):
 		'''
 			See get_gradient for the docs
-		'''	
+		'''
 		assert gradType in self.grad_.keys(), 'gradType: %s is not recognized' % gradType
 		return copy.deepcopy(self.grad_[gradType])	
 
