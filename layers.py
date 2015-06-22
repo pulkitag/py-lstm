@@ -8,11 +8,11 @@ import copy
 ##
 # The base class from which other layers will inherit. 
 class BaseLayer:
-	def __init__(self, prms=None):
+	def __init__(self, prms={'name': 'default'}):
 		#Type of layers
 		self.type_ = None
 		#Name of the layers
-		self.name_ = None
+		self.name_ = prms['name']
 		#The layer parameters - these can
 		#be different for different layers
 		self.prms_ = prms
@@ -22,7 +22,7 @@ class BaseLayer:
 		self.grad_ = {} 
 
 	#Forward pass
-	def forward(self, bottom):
+	def forward(self, bottom, top):
 		pass
 
 	#Backward pass
@@ -34,17 +34,8 @@ class BaseLayer:
 		pass
 
 	#Setup the layer including the top
-	def setup(self, bottom):
+	def setup(self, bottom, top):
 		pass
-
-	def get_mutable_top(self):
-		return self.top_
-
-	def get_top(self):
-		return copy.deepcopy(self.top_)
-
-	def get_top_shape(self):
-		return self.top_.shape
 
 	def get_gradient(self, gradType='bot'):
 		'''
@@ -65,14 +56,19 @@ class BaseLayer:
 ##
 # Recitified Linear Unit (ReLU)
 class ReLU(BaseLayer):
-	def setup(self, bottom):
-		self.top_         = np.zeros_like(bottom)
+	def setup(self, bottom, top):
+		top               = np.zeros_like(bottom)
 		self.grad_['bot'] = np.zeros_like(bottom) 
+		self.type_        = 'ReLU'
 
-	def forward(self, bottom):
-		self.top_ = np.maximum(bottom, 0)
+	def forward(self, bottom, top):
+		top = np.maximum(bottom, 0)
 
 	def backward(self, bottom, topgrad):
 		self.grad_['bot'] = topgrad * (self.top_>0)	
+	
+##
+# Sigmoid
+class Sigmoid(BaseLayer):
 	
 	
