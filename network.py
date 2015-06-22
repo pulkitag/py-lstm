@@ -1,4 +1,4 @@
-
+import numpy as np
 
 class Network:
 	def __init__(self):
@@ -29,7 +29,7 @@ class Network:
 		for n,l,i,o in self.layers:
 			for s in i+o:
 				if not s in self.blobs:
-					self.blobs[s] = np.empty()
+					self.blobs[s] = np.empty((0,))
 			l.setup( self._get_blobs(i), self._get_blobs(o) )
 	
 	def forward1(self,**kwargs):
