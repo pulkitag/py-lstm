@@ -10,28 +10,27 @@ class Network:
 	
 	def _get_blobs(self,names):
 		return [self.blobs[n] for n in names]
+	
 	def _get_diffs(self,names):
 		return [self.diffs[n] for n in names]
 	
-	def addLayer(self,layer_instance,input_blobs,output_blobs):
+	def addLayer(self,layer_name,layer_instance,input_blobs,output_blobs):
 		"""
 		    Add a new layer_instance with inputs and outputs given as a list of strings
 		"""
 		if not isinstance(input_blobs ,list): input_blobs  = [input_blobs]
 		if not isinstance(output_blobs,list): output_blobs = [output_blobs]
-		self.layers.append( (layer_instance,input_blobs,output_blobs) )
-	
+		self.layers.append( (layer_name,layer_instance,input_blobs,output_blobs) )
 	
 	def setup(self,**kwargs):
 		"""
 		    Setup the network
 		"""
-		for l,i,o in self.layers:
-			for n in i+o:
-				if not n in self.blobs:
-					self.blobs[n] = np.empty()
-			
-		
+		for n,l,i,o in self.layers:
+			for s in i+o:
+				if not s in self.blobs:
+					self.blobs[s] = np.empty()
+			l.setup( self._get_blobs(i), self._get_blobs(o) )
 	
 	def forward1(self,**kwargs):
 		"""
@@ -41,7 +40,7 @@ class Network:
 		for n,v in kwargs:
 			self.blobs[n][...] = v
 		
-		for l,i,o in self.layers:
+		for n,l,i,o in self.layers:
 			l.forward( self._get_blobs(i), self._get_blobs(o) )
 	
 	def backward1(self,**kwargs):
@@ -52,16 +51,44 @@ class Network:
 		for n,v in kwargs:
 			self.diffs[n][...] = v
 		
-		for l,i,o in self.layers[::-1]:
-			l.backward( self._get_blobs(i), self._get_blobs(o) )
+		for n,l,i,o in self.layers[::-1]:
+			l.backward( self._get_blobs(i), self._get_blobs(o), self._get_diffs(i), self._get_diffs(o) )
 		
 	#def forwardBackward(self,**kwargs):
 		#pass
+	@property
 	def gradient(self):
 		"""
-		    Push the current blobs on a stack (so that we can remember them later)
+		    Return the gradient of all layers
 		"""
-		pass
+		r = {}
+		for n,l,i,o in self.layers:
+			if not n in r:
+				r[n] = l.gradient
+			else:
+				# Add the parmaters
+				g = l.gradient
+				assert set(g.keys()) == set(m.keys())
+				for m in g:
+					r[n][m] += g[m]
+		return r
+	
+	@property
+	def flat_gradient(self):
+		"""
+		    Return the gradient of all layers
+		"""
+		r = {}
+		for n,l,i,o in self.layers:
+			if not n in r:
+				r[n] = l.flat_gradient
+			else:
+				# Add the parmaters
+				g = l.flat_gradient
+				assert set(g.keys()) == set(m.keys())
+				for m in g:
+					r[n][m] += g[m]
+		return np.concatenate( r.values(), axis=0 )
 	
 	def pushState(self):
 		"""
@@ -75,9 +102,13 @@ class Network:
 	
 	@property
 	def parameters(self):
-		""" Fetch all the parameters of the network """
+		""" TODO: Implement """
 		pass
-	@parameters.setter
-	def x(self, value):
-		""" Set all the parameters of the network """
+	@property
+	def flat_parameters(self, value):
+		""" TODO: Implement """
+		pass
+	@flat_parameters.setter
+	def flat_parameters(self, value):
+		""" TODO: Implement """
 		pass
