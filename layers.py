@@ -12,7 +12,7 @@ class BaseLayer(object):
 	def __init__(self, **lPrms):
 		#The layer parameters - these can
 		#be different for different layers
-		print lPrms
+		print( lPrms )
 		for n in lPrms:
 			if hasattr(self,n):
 				setattr(self,n,lPrms[n])
@@ -128,9 +128,9 @@ class InnerProduct(BaseLayer):
 		super(InnerProduct, self).__init__(**lPrms)
 
 	def setup(self, bottom, top):
-		top = np.zeros((bottom.shape[0], self.numOut)).astype(bottom.dtype)
-		self.prms_['w'] = np.zeros((bottom.shape[1], self.numOut).astype(bottom.dtype)
-		self.prms_['b'] = np.zeros((1, self.numOut).astype(bottom.dtype)
+		top = np.zeros((bottom.shape[0], self.numOut),dtype=bottom.dtype)
+		self.prms_['w'] = np.zeros((bottom.shape[1], self.numOut),dtype=bottom.dtype)
+		self.prms_['b'] = np.zeros((1, self.numOut),dtype=bottom.dtype)
 		self.grad_['w'] = np.zeros_like(self.prms_['w'])
 		self.grad_['b'] = np.zeros_like(self.prms_['b'])	
 
