@@ -163,10 +163,18 @@ class SoftMax(BaseLayer):
 		top[0].resize( bot[0].shape, refcheck=False)
 		
 	def forward(self, bot, top):
-			mn = np.min(bot[0])
-			top[0][...] = np.exp((top[0][...] - mn))
-			Z         = np.sum(top[0])
-			top[0][...]  = top[0] / Z
-	
-	def backward(self, bottom, top, botgrad, topgrad):
-		pass
+		mn = np.min(bot[0])
+		top[0][...] = np.exp((top[0][...] - mn))
+		Z           = np.sum(top[0])
+		top[0][...] = top[0] / Z
+
+	def backward(self, bot, top, botgrad, topgrad):
+		'''
+			sk, pk, gj - score, probability of kth unit and jth top gradient. 
+			d(output)|d(sk) = pk * sk * [\sum_j (-gj * pj) + gk]
+		'''
+		sm = -np.tensordot(topgrad[0], top[0], axes=len(top[0].shape)) + topgrad[0]
+		botgrad[0][...] = top[0] * bot[0] * sm
+
+##
+#SoftMaxWithLoss 	
