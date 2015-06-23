@@ -27,20 +27,20 @@ class BaseLayer(object):
 		return type(self).__name__
 
 	#Forward pass
-	def forward(self, bottom, top):
+	def forward(self, bot, top):
 		pass
 
 	#Backward pass
-	def backward(self, bottom, top, botgrad, topgrad):
+	def backward(self, bot, top, botgrad, topgrad):
 		'''
-			bottom : The inputs from the previous layer
+			bot    : The inputs from the previous layer
 			topgrad: The gradient from the next layer
 			botgrad: The gradient to the bottom layer
 		'''
 		pass
 
 	#Setup the layer including the top
-	def setup(self, bottom, top):
+	def setup(self, bot, top):
 		pass
 
 	@property
@@ -85,16 +85,16 @@ class BaseLayer(object):
 ##
 # Recitified Linear Unit (ReLU)
 class ReLU(BaseLayer):
-	def setup(self, bottom, top):
-		for b,t in zip(bottom,top):
+	def setup(self, bot, top):
+		for b,t in zip(bot,top):
 			t.resize(b.shape,refcheck=False)
 
-	def forward(self, bottom, top):
-		for b,t in zip(bottom,top):
+	def forward(self, bot, top):
+		for b,t in zip(bot,top):
 			t[...] = np.maximum(b, 0)
 
-	def backward(self, bottom, top, botgrad, topgrad):
-		for b,t,db,dt in zip(bottom,top,botgrad,topgrad):
+	def backward(self, bot, top, botgrad, topgrad):
+		for b,t,db,dt in zip(bot, top, botgrad, topgrad):
 			db[...] = dt * (t>0)
 	
 ##
@@ -105,20 +105,20 @@ class Sigmoid(BaseLayer):
 	'''
 	sigma = 1.0
 	
-	def setup(self, bottom, top):
-		for b,t in zip(bottom,top):
+	def setup(self, bot, top):
+		for b,t in zip(bot,top):
 			t.resize(b.shape,refcheck=False)
 		
-	def forward(self, bottom, top):
-		for b,t in zip(bottom,top):
+	def forward(self, bot, top):
+		for b,t in zip(bot,top):
 			# Numerically more stable
 			d = -b * self.sigma
 			ep = np.exp( -np.maximum(0,d) )
 			en = np.exp( np.minimum(0,d) )
 			t[...] = ep / (ep + en)
 
-	def backward(self, bottom, top, botgrad, topgrad):
-		for b,t,db,dt in zip(bottom,top,botgrad,topgrad):
+	def backward(self, bot, top, botgrad, topgrad):
+		for b,t,db,dt in zip(bot, top, botgrad, topgrad):
 			db[...] = dt * t * (1 - t) * self.sigma
 
 ##
@@ -128,48 +128,45 @@ class InnerProduct(BaseLayer):
 		The input and output will be batchSz * numUnits
 	'''
 	##TODO: Define weight fillers
-	output_shape = 10
-	def __init__(self,*args,**kwargs):
-		super().__init__(*args,**kwargs)
-		try: self.output_shape = tuple(self.output_shape)
-		except: self.output_shape = (self.output_shape,)
+	outShape = 10
+	def __init__(self, **kwargs):
+		super(InnerProduct, self).__init__(**kwargs)
+		try: 
+			self.outShape = tuple(self.outShape)
+		except: 
+			self.outShape = (self.outShape,)
 	
-	def setup(self, bottom, top):
-		assert len(bottom) == 1 and len(top) == 1
-		top[0].resize( self.output_shape, refcheck=False )
+	def setup(self, bot, top):
+		assert len(bot) == 1 and len(top) == 1
+		top[0].resize( self.outShape, refcheck=False)
 		# Initialize the parameters
-		self.prms_['w'] = np.zeros(bottom[0].shape+self.output_shape,dtype=bottom[0].dtype)
-		self.prms_['b'] = np.zeros(self.output_shape,dtype=bottom[0].dtype)
+		self.prms_['w'] = np.zeros(bot[0].shape + self.outShape, dtype=bot[0].dtype)
+		self.prms_['b'] = np.zeros(self.outShape, dtype=bot[0].dtype)
 		self.grad_['w'] = np.zeros_like(self.prms_['w'])
 		self.grad_['b'] = np.zeros_like(self.prms_['b'])
 
-	def forward(self, bottom, top):
-		# TODO: Make sure this is correct!
-		top[0][...] = np.tensordot(bottom[0],  self.prms_['w']) + self.prms_['b'] 
+	def forward(self, bot, top):
+		top[0][...] = np.tensordot(bot[0],  self.prms_['w'], axes=len(bot[0].shape)) + self.prms_['b'] 
 
-	def backward(self, bottom, top, botgrad, topgrad):
-		# TODO: Make sure this is correct! (use tensordot)
+	def backward(self, bot, top, botgrad, topgrad):
 		#Gradients wrt to the inputs
-		botgrad[0][...]  = np.dot(topgrad[0], np.transpose(self.grad_['w'])) 
+		botgrad[0][...]  = np.tensordot(topgrad[0], self.grad_['w'].transpose(), axes=len(self.outShape)) 
 		#Gradients wrt to the parameters
-		self.grad_['w'][...] = np.dot(topgrad[0].transpose(), bottom[0]).transpose()
-		self.grad_['b'][...] = np.sum(topgrad[0], axis=0)
+		self.grad_['w'][...] = np.tensordot(bot[0], topgrad[0], axes=0).transpose()
+		self.grad_['b'][...] = topgrad[0]
 
 ##
 #SoftMax
 class SoftMax(BaseLayer):
-	def setup(self, bottom, top):
-		assert len(bottom) == 1 and len(top) == 1
-		top[0].resize( bottom[0].output_shape, refcheck=False )
+	def setup(self, bot, top):
+		assert len(bot) == 1 and len(top) == 1
+		top[0].resize( bot[0].shape, refcheck=False)
 		
-	def forward(self, bottom, top):
-		# NOTE: Consider removing the num dimension for now!
-		for i in range(bottom.shape[0]):
-			# NOTE: Consider making this 1/Z exp(bottom) [no negation]
-			mn = np.min(bottom[i,:])
-			top[i, :] = np.exp(-(top[i,:] - mn))
-			Z         = sum(top[i,:])
-			top[i,:]  = top[i,:] / Z
+	def forward(self, bot, top):
+			mn = np.min(bot[0])
+			top[0][...] = np.exp((top[0][...] - mn))
+			Z         = np.sum(top[0])
+			top[0][...]  = top[0] / Z
 	
 	def backward(self, bottom, top, botgrad, topgrad):
 		pass
