@@ -12,4 +12,3 @@ def update_defaults(ipArgs, defArgs):
 		assert defArgs.has_key(key), 'Key not found: %s' % key
 		defArgs[key] = ipArgs[key]
 	return defArgs
-
