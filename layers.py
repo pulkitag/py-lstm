@@ -162,6 +162,5 @@ class SoftMax(BaseLayer):
 			Z         = sum(top[i,:])
 			top[i,:]  = top[i,:] / Z
 	
-
 	def backward(self, bottom, top, botgrad, topgrad):
 		pass
