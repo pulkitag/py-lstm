@@ -178,3 +178,21 @@ class SoftMax(BaseLayer):
 
 ##
 #SoftMaxWithLoss 	
+class SoftMaxWithLoss(BaseLayer):
+	def setup(self, bot, top):
+		assert len(bot)==2 and len(top)==1
+		assert bot[0].ndim ==1, 'The bottom to the loss layer should be 1-D'
+		top[0].resize((1,), refcheck=False)
+		self.softmaxTop_ = np.zeros_like(bot[0])
+		self.softmax_ = SoftMax([bot[0]], self.softmaxTop_)
+		self.softmax_.setup([bot[0]], self.softmaxTop_)
+
+	def forward(self, bot, top):
+		lbl = bot[1]
+		self.softmax_.forward([bot[0]], self.softmaxTop_)
+		top[0][...] = -np.log2(self.softmaxTop_[lbl])
+
+	def backward(self, bot, top, botgrad, topgrad):
+		lbl = bot[1]
+		self.botgrad[0][...] = -copy.deepcopy(self.softmaxTop_)
+		self.botgrad[0][lbl] += 1 
