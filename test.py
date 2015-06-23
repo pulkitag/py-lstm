@@ -18,5 +18,5 @@ def test_relu():
 
 def test_sigmoid():
 	sig = ly.Sigmoid(**{'sigma':2})
-	pdb.set_trace()	
+	pdb.set_trace()
 
