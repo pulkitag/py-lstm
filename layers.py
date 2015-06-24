@@ -163,8 +163,9 @@ class SoftMax(BaseLayer):
 		top[0].resize( bot[0].shape, refcheck=False)
 		
 	def forward(self, bot, top):
-		mn = np.min(bot[0])
-		top[0][...] = np.exp((top[0][...] - mn))
+		#For numerical stability subtract the max
+		mx = np.max(bot[0])
+		top[0][...] = np.exp((top[0][...] - mx))
 		Z           = np.sum(top[0])
 		top[0][...] = top[0] / Z
 
