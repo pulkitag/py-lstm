@@ -9,6 +9,7 @@ import utils
 ##
 # The base class from which other layers will inherit. 
 class BaseLayer(object):
+	loss_weight = 0
 	def __init__(self, **lPrms):
 		#The layer parameters - these can
 		#be different for different layers
@@ -54,6 +55,7 @@ class BaseLayer(object):
 		'''
 			Get the gradient of the parameters as a 1d array
 		'''
+		if len(self.grad_) <= 0: return np.empty((0,))
 		return np.concatenate( [self.grad_[n].ravel() for n in sorted(self.grad_)], axis=0 )
 
 	@property
@@ -128,31 +130,24 @@ class InnerProduct(BaseLayer):
 		The input and output will be batchSz * numUnits
 	'''
 	##TODO: Define weight fillers
-	outShape = 10
-	def __init__(self, **kwargs):
-		super(InnerProduct, self).__init__(**kwargs)
-		try: 
-			self.outShape = tuple(self.outShape)
-		except: 
-			self.outShape = (self.outShape,)
-	
+	output_size = 10
 	def setup(self, bot, top):
 		assert len(bot) == 1 and len(top) == 1
-		top[0].resize( self.outShape, refcheck=False)
+		top[0].resize( self.output_size, refcheck=False)
 		# Initialize the parameters
-		self.prms_['w'] = np.zeros(bot[0].shape + self.outShape, dtype=bot[0].dtype)
-		self.prms_['b'] = np.zeros(self.outShape, dtype=bot[0].dtype)
+		self.prms_['w'] = np.zeros((bot[0].size,self.output_size), dtype=bot[0].dtype)
+		self.prms_['b'] = np.zeros(self.output_size, dtype=bot[0].dtype)
 		self.grad_['w'] = np.zeros_like(self.prms_['w'])
 		self.grad_['b'] = np.zeros_like(self.prms_['b'])
 
 	def forward(self, bot, top):
-		top[0][...] = np.tensordot(bot[0],  self.prms_['w'], axes=len(bot[0].shape)) + self.prms_['b'] 
+		top[0][...] = np.dot(bot[0].ravel(), self.prms_['w']) + self.prms_['b'] 
 
 	def backward(self, bot, top, botgrad, topgrad):
 		#Gradients wrt to the inputs
-		botgrad[0][...]  = np.tensordot(topgrad[0], self.grad_['w'].transpose(), axes=len(self.outShape)) 
+		botgrad[0].flat[...]  = np.dot(self.grad_['w'], topgrad[0]) 
 		#Gradients wrt to the parameters
-		self.grad_['w'][...] = np.tensordot(bot[0], topgrad[0], axes=0).transpose()
+		self.grad_['w'][...] = bot[0].ravel()[:,None] * topgrad[0][None,:]
 		self.grad_['b'][...] = topgrad[0]
 
 ##

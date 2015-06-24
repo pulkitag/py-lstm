@@ -58,9 +58,63 @@ class Network:
 		
 		for n,l,i,o in self._layers[::-1]:
 			l.backward( self._get_blobs(i), self._get_blobs(o), self._get_diffs(i), self._get_diffs(o) )
+	
+	def forwardMany(self,N=None,**kwargs):
+		"""
+		    Call forward for a sequence of length (N). N can also
+		    be inferred from kwargs if any are given.
+		    Note: this does not store the indidual network states,
+		    but rather overwrites them.
+		"""
+		# Set all the blobs to 0
+		for b in self._blobs.values():
+			b[...] = 0
 		
-	#def forwardBackward(self,**kwargs):
-		#pass
+		if N == None: N = kwargs.values()[0].shape[0]
+		
+		# Run forward
+		for it in range(N):
+			self.forward1( {n:kwargs[n][i] for n in kwargs} )
+		
+		
+	def forwardBackwardAll(self,N=None,**kwargs):
+		"""
+		    Call forward and backward for a sequence of length (N).
+		    N can also be inferred from kwargs if any are given.
+		    Returns the flat gradient and the loss for each iterations
+		"""
+		# Get the set of blobs that have a loss
+		blob_loss_weight = {s:l.loss_weight for n,l,i,o in self._layers for s in o if l.loss_weight != 0}
+		print( blob_loss_weight )
+		# Set all the blobs to 0
+		for b in self._blobs.values():
+			b[...] = 0
+		
+		if N == None:
+			assert len(kwargs.values()) > 0
+			N = kwargs[list(kwargs)[0]].shape[0]
+		
+		# Run forward
+		for it in range(N):
+			self.forward1( **{n:kwargs[n][it] for n in kwargs} )
+			self.pushState()
+		
+		# Set the loss diffs to 0
+		for b in self._diffs.values():
+			b[...] = 0
+		
+		for n in blob_loss_weight:
+			self._diffs[n][...] = blob_loss_weight[n]
+		
+		# Run backward and accumulate the flat gradient
+		g = 0*self.flat_gradient
+		losses = []
+		for it in range(N):
+			self.popState()
+			self.backward1( **{n:kwargs[n][it] for n in kwargs} )
+			g += self.flat_gradient
+			losses.append( {n:np.sum(self._blobs[n])*blob_loss_weight[n] for n in blob_loss_weight} )
+		return g, losses
 	
 	@property
 	def blobs(self):
