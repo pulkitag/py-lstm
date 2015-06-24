@@ -5,6 +5,7 @@ import numpy as np
 import scipy.misc as scm
 import copy
 import utils
+from easydict import EasyDict as edict
 
 ##
 # The base class from which other layers will inherit. 
@@ -19,9 +20,9 @@ class BaseLayer(object):
 			else:
 				raise Exception( "Attribute '%s' not found"%n )
 		#The gradients wrt to the parameters and the bottom
-		self.grad_ = {} 
+		self.grad_ = edict() 
 		#Storing the weights and other stuff
-		self.prms_ = {}
+		self.prms_ = edict()
 	
 	@property
 	def type(self):
@@ -107,6 +108,10 @@ class Sigmoid(BaseLayer):
 	'''
 	sigma = 1.0
 	
+	@classmethod
+	def from_self(cls, other):
+		return cls(other.sigma)
+
 	def setup(self, bot, top):
 		for b,t in zip(bot,top):
 			t.resize(b.shape,refcheck=False)
@@ -130,13 +135,13 @@ class InnerProduct(BaseLayer):
 		The input and output will be batchSz * numUnits
 	'''
 	##TODO: Define weight fillers
-	output_size = 10
+	opSz = 10
 	def setup(self, bot, top):
 		assert len(bot) == 1 and len(top) == 1
-		top[0].resize( self.output_size, refcheck=False)
+		top[0].resize( self.opSz, refcheck=False)
 		# Initialize the parameters
-		self.prms_['w'] = np.zeros((bot[0].size,self.output_size), dtype=bot[0].dtype)
-		self.prms_['b'] = np.zeros(self.output_size, dtype=bot[0].dtype)
+		self.prms_['w'] = np.zeros((bot[0].size,self.opSz), dtype=bot[0].dtype)
+		self.prms_['b'] = np.zeros(self.opSz, dtype=bot[0].dtype)
 		self.grad_['w'] = np.zeros_like(self.prms_['w'])
 		self.grad_['b'] = np.zeros_like(self.prms_['b'])
 
@@ -192,3 +197,45 @@ class SoftMaxWithLoss(BaseLayer):
 		lbl = bot[1]
 		self.botgrad[0][...] = -copy.deepcopy(self.softmaxTop_)
 		self.botgrad[0][lbl] += 1 
+
+##
+#LSTM Unit
+class LSTM(BaseLayer):
+	'''
+		opSz     : The output sisze of the LSTM layer - (i.e. number of memory units)
+		isLateral: False (Default) - memory cells operate independently of each other
+						   True - memory cells interact with other to influence the ip/op etc. 
+	'''
+	opSz         = 10	
+	isLateral    = False
+	nonLinearityType = Sigmoid
+	nonLinearityPrms = {} 
+	def setup(self, bot, top):
+		assert len(bot) == 1 and len(top) == 1
+		assert bot[0].ndim==1
+		assert type(opSz) == int
+		botDim, dType = len(bot[0]), bot[0].dtype
+		top[0].resize((opSz,), refcheck=False)
+		#The non-linearities
+		self.nl_    = edict()
+		#There are 4 modules within the lstm
+		#ip, ipg, opg, fg - input, input gate, op gate and forget gate
+		self.modules_ = ['ip', 'ipg', 'opg', 'fg']
+		self.prms_.w, self.prms_.b = edict()
+		for md in self.modules_:
+			if isLateral:
+				#botDim + opSz to account for inputs from all memory units
+				self.prms_.w[md] = np.zeros((botDim + opSz, opSz), dtype=dType)
+			else:
+				#botDim + 1 to account for the self input
+				self.prms_.w[md] = np.zeros((botDim + 1, opSz), dtype=dType)
+			self.prms_.b[md] = np.zeros((1, opSz), dtype=dType)	
+			self.nl_.[md]    = edict() 
+			self.nl_[md].layer = self.nonLinearityType(**self.nonLinearityPrms)
+			self.nl_[md].top   = np.zeros((opSz,), dtype=dType)
+		#The memory
+		self.mem_ = np.zeros((opSz,)), dtype=dType)	
+			
+	def forward(self, bot, top):
+		ip = np.dot(self.prms_['w_ip'], bot[0]) + self.prms_['b_ip']
+			
