@@ -205,6 +205,12 @@ class LSTM(BaseLayer):
 		opSz     : The output sisze of the LSTM layer - (i.e. number of memory units)
 		isLateral: False (Default) - memory cells operate independently of each other
 						   True - memory cells interact with other to influence the ip/op etc. 
+
+		Differences from the standard derivation
+			- no tanH
+			- One thing that seems weird is that inputs from both the memory and the 
+				previous output are used to update the new state. In this version of LSTM
+				I have ommited this idea. 
 	'''
 	opSz         = 10	
 	isLateral    = False
@@ -214,7 +220,7 @@ class LSTM(BaseLayer):
 		assert len(bot) == 1 and len(top) == 1
 		assert bot[0].ndim==1
 		assert type(opSz) == int
-		botDim, dType = len(bot[0]), bot[0].dtype
+		ipSz, dType = len(bot[0]), bot[0].dtype
 		top[0].resize((opSz,), refcheck=False)
 		#The non-linearities
 		self.nl_    = edict()
@@ -224,18 +230,37 @@ class LSTM(BaseLayer):
 		self.prms_.w, self.prms_.b = edict()
 		for md in self.modules_:
 			if isLateral:
-				#botDim + opSz to account for inputs from all memory units
-				self.prms_.w[md] = np.zeros((botDim + opSz, opSz), dtype=dType)
+				#ipSz + opSz to account for inputs from all memory units
+				self.prms_.w[md] = np.zeros((opSz, ipSz + opSz), dtype=dType)
 			else:
-				#botDim + 1 to account for the self input
-				self.prms_.w[md] = np.zeros((botDim + 1, opSz), dtype=dType)
-			self.prms_.b[md] = np.zeros((1, opSz), dtype=dType)	
-			self.nl_.[md]    = edict() 
+				#ipSz + 1 to account for the self input
+				self.prms_.w[md] = np.zeros((opSz, ipSz + 1), dtype=dType)
+			self.prms_.b[md]   = np.zeros((1, opSz), dtype=dType)	
+			self.nl_[md]       = edict() 
 			self.nl_[md].layer = self.nonLinearityType(**self.nonLinearityPrms)
 			self.nl_[md].top   = np.zeros((opSz,), dtype=dType)
+			self.nl_[md].bot   = np.zeros((ipSz,), dtype=dType)
 		#The memory
-		self.mem_ = np.zeros((opSz,)), dtype=dType)	
-			
+		self.mem_   = np.zeros((opSz,)), dtype=dType)	
+		self.memt0_ = np.zeros((opSz,)), dtype=dType)	
+		if isLateral:
+			self.bot_ = np.zeros((ipSz + opSz,), dtype=dType)
+		else:
+			self.bot_ = np.zeros((ipSz + 1,), dtype=dType)		
+		self.ipSz = ipSz	
+
 	def forward(self, bot, top):
-		ip = np.dot(self.prms_['w_ip'], bot[0]) + self.prms_['b_ip']
-			
+		for md in self.modules_:
+			if isLateral:
+				self.bot_[0:ipSz] = bot[0][...]
+				self.bot_[ipSz:]  = self.mem_[...]
+				self.nl_[md].bot  = np.dot(self.prms_.w[md], self.bot_) + self.prms_.b[md] 
+				self.nl_[md].layer.forward(self.bot_, self.nl_[md].top)
+			else:
+				pass
+
+		#Update the memory
+		self.mem_    = self.mem_ * self.nl_.fg.top + self.nl_.ipg.top * self.nl_.ip.top
+		top          = self.nl_.opg.top * self.memt0_
+		#Copy the current to previous state
+		self.memt0_  = copy.deepcopy(self.mem_)
