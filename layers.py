@@ -210,7 +210,9 @@ class LSTM(BaseLayer):
 			- no tanH
 			- One thing that seems weird is that inputs from both the memory and the 
 				previous output are used to update the new state. In this version of LSTM
-				I have ommited this idea. 
+				I have ommited this idea.
+			- The state of the n/w is all the value of all the memory units taken together
+				and not the individual units.  
 	'''
 	opSz         = 10	
 	isLateral    = False
@@ -227,7 +229,12 @@ class LSTM(BaseLayer):
 		#There are 4 modules within the lstm
 		#ip, ipg, opg, fg - input, input gate, op gate and forget gate
 		self.modules_ = ['ip', 'ipg', 'opg', 'fg']
+		#The memory
+		self.mem_   = np.zeros((opSz,)), dtype=dType)	
+		self.memt0_ = np.zeros((opSz,)), dtype=dType) #Memory at previous time step. 	
 		self.prms_.w, self.prms_.b = edict()
+		self.grad_.w, self.grad_.b = edict()
+		self.grad_.memt0 = np.zeros((opSz,), dtype=dType) 
 		for md in self.modules_:
 			if isLateral:
 				#ipSz + opSz to account for inputs from all memory units
@@ -235,14 +242,13 @@ class LSTM(BaseLayer):
 			else:
 				#ipSz + 1 to account for the self input
 				self.prms_.w[md] = np.zeros((opSz, ipSz + 1), dtype=dType)
+			self.grad_.w[md]   = np.zeros_like(self.prms_.w[md])
 			self.prms_.b[md]   = np.zeros((1, opSz), dtype=dType)	
+			self.grad_.b[md]   = np.zeros_like(self.prms_.b[md])
 			self.nl_[md]       = edict() 
 			self.nl_[md].layer = self.nonLinearityType(**self.nonLinearityPrms)
 			self.nl_[md].top   = np.zeros((opSz,), dtype=dType)
 			self.nl_[md].bot   = np.zeros((ipSz,), dtype=dType)
-		#The memory
-		self.mem_   = np.zeros((opSz,)), dtype=dType)	
-		self.memt0_ = np.zeros((opSz,)), dtype=dType)	
 		if isLateral:
 			self.bot_ = np.zeros((ipSz + opSz,), dtype=dType)
 		else:
@@ -255,12 +261,15 @@ class LSTM(BaseLayer):
 				self.bot_[0:ipSz] = bot[0][...]
 				self.bot_[ipSz:]  = self.mem_[...]
 				self.nl_[md].bot  = np.dot(self.prms_.w[md], self.bot_) + self.prms_.b[md] 
-				self.nl_[md].layer.forward(self.bot_, self.nl_[md].top)
+				self.nl_[md].layer.forward(self.nl_[md].bot, self.nl_[md].top)
 			else:
 				pass
-
 		#Update the memory
-		self.mem_    = self.mem_ * self.nl_.fg.top + self.nl_.ipg.top * self.nl_.ip.top
-		top          = self.nl_.opg.top * self.memt0_
+		self.mem_    = self.memt0_ * self.nl_.fg.top + self.nl_.ipg.top * self.nl_.ip.top
+		top          = self.nl_.opg.top * self.mem_
 		#Copy the current to previous state
 		self.memt0_  = copy.deepcopy(self.mem_)
+		
+	def backward(self, bot, top, botgrad, topgrad):
+		for md in self.modules_:
+						
